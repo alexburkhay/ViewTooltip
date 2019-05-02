@@ -13,14 +13,15 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-
-import androidx.annotation.ColorInt;
-import androidx.annotation.StringRes;
-import androidx.core.widget.NestedScrollView;
-import androidx.fragment.app.DialogFragment;
-import androidx.fragment.app.Fragment;
-
+import android.support.annotation.ColorInt;
+import android.support.annotation.LayoutRes;
+import android.support.annotation.StringRes;
+import android.support.v4.app.DialogFragment;
+import android.support.v4.app.Fragment;
+import android.support.v4.widget.NestedScrollView;
 import android.text.Html;
+import android.util.DisplayMetrics;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -129,8 +130,8 @@ public class ViewTooltip {
         return this;
     }
 
-    public ViewTooltip customView(int viewId) {
-        this.tooltip_view.setCustomView(((Activity) view.getContext()).findViewById(viewId));
+    public ViewTooltip customView(@LayoutRes int layoutId) {
+        this.tooltip_view.setCustomView(LayoutInflater.from(view.getContext()).inflate(layoutId, null));
         return this;
     }
 
@@ -187,7 +188,7 @@ public class ViewTooltip {
                     }
 
                     decorView.addView(tooltip_view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-
+                    view.addOnAttachStateChangeListener(tooltip_view.anchorViewAttachStateListener);
                     tooltip_view.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
                         @Override
                         public boolean onPreDraw() {
@@ -205,7 +206,7 @@ public class ViewTooltip {
         return tooltip_view;
     }
 
-    public void close(){
+    public void close() {
         tooltip_view.close();
     }
 
@@ -232,6 +233,20 @@ public class ViewTooltip {
     public ViewTooltip onHide(ListenerHide listener) {
         this.tooltip_view.setListenerHide(listener);
         return this;
+    }
+
+    public ViewTooltip onClick(ListenerClick listener) {
+        this.tooltip_view.setListenerClick(listener);
+        return this;
+    }
+
+    //Setting padding in dp instead of px
+    public ViewTooltip padding(float left, float top, float right, float bottom) {
+        DisplayMetrics displayMetrics = view.getResources().getDisplayMetrics();
+        return padding(dpToPx(left, displayMetrics),
+                dpToPx(top, displayMetrics),
+                dpToPx(right, displayMetrics),
+                dpToPx(bottom, displayMetrics));
     }
 
     public ViewTooltip padding(int left, int top, int right, int bottom) {
@@ -277,7 +292,7 @@ public class ViewTooltip {
         return this;
     }
 
-    public ViewTooltip setTextGravity (int textGravity) {
+    public ViewTooltip setTextGravity(int textGravity) {
         this.tooltip_view.setTextGravity(textGravity);
         return this;
     }
@@ -298,7 +313,7 @@ public class ViewTooltip {
         return this;
     }
 
-    public ViewTooltip border(int color,float width){
+    public ViewTooltip border(int color, float width) {
         Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         borderPaint.setColor(color);
         borderPaint.setStyle(Paint.Style.STROKE);
@@ -332,6 +347,10 @@ public class ViewTooltip {
 
     public interface ListenerHide {
         void onHide(View view);
+    }
+
+    public interface ListenerClick {
+        void onClick(TooltipView tooltipView);
     }
 
     public static class FadeTooltipAnimation implements TooltipAnimation {
@@ -373,13 +392,26 @@ public class ViewTooltip {
         private ALIGN align = ALIGN.CENTER;
         private boolean clickToHide;
         private boolean autoHide = true;
+
         private long duration = 4000;
 
         private ListenerDisplay listenerDisplay;
-
         private ListenerHide listenerHide;
+        private ListenerClick listenerClick;
 
         private TooltipAnimation tooltipAnimation = new FadeTooltipAnimation();
+
+        private OnAttachStateChangeListener anchorViewAttachStateListener = new OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                v.removeOnAttachStateChangeListener(this);
+                closeNow();
+            }
+        };
 
         private int corner = 30;
 
@@ -441,7 +473,7 @@ public class ViewTooltip {
 
         public void setPosition(Position position) {
             this.position = position;
-            switch (position){
+            switch (position) {
                 case TOP:
                     setPadding(paddingLeft, paddingTop, paddingRight, paddingBottom + arrowHeight);
                     break;
@@ -562,8 +594,8 @@ public class ViewTooltip {
 
             if (bubblePath != null) {
                 canvas.drawPath(bubblePath, bubblePaint);
-                if(borderPaint != null){
-                    canvas.drawPath(bubblePath,borderPaint);
+                if (borderPaint != null) {
+                    canvas.drawPath(bubblePath, borderPaint);
                 }
             }
         }
@@ -578,6 +610,10 @@ public class ViewTooltip {
 
         public void setTooltipAnimation(TooltipAnimation tooltipAnimation) {
             this.tooltipAnimation = tooltipAnimation;
+        }
+
+        public void setListenerClick(ListenerClick listener) {
+            this.listenerClick = listener;
         }
 
         protected void startEnterAnimation() {
@@ -598,21 +634,21 @@ public class ViewTooltip {
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
                     animatorListener.onAnimationEnd(animation);
-                    if (listenerHide != null) {
-                        listenerHide.onHide(TooltipView.this);
-                    }
+
                 }
             });
         }
 
         protected void handleAutoRemove() {
-            if (clickToHide) {
+            if (clickToHide || listenerClick != null) {
                 setOnClickListener(new OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         if (clickToHide) {
                             remove();
                         }
+                        if (listenerClick != null)
+                            listenerClick.onClick(TooltipView.this);
                     }
                 });
             }
@@ -671,8 +707,10 @@ public class ViewTooltip {
 
         private int getAlignOffset(int myLength, int hisLength) {
             switch (align) {
-                case END:    return hisLength - myLength;
-                case CENTER: return (hisLength - myLength) / 2;
+                case END:
+                    return hisLength - myLength;
+                case CENTER:
+                    return (hisLength - myLength) / 2;
             }
             return 0;
         }
@@ -680,7 +718,7 @@ public class ViewTooltip {
         private Path drawBubble(RectF myRect, float topLeftDiameter, float topRightDiameter, float bottomRightDiameter, float bottomLeftDiameter) {
             final Path path = new Path();
 
-            if(viewRect == null)
+            if (viewRect == null)
                 return path;
 
             topLeftDiameter = topLeftDiameter < 0 ? 0 : topLeftDiameter;
@@ -776,29 +814,29 @@ public class ViewTooltip {
                 int adjustedLeft = rect.left;
                 int adjustedRight = rect.right;
 
-                if((rect.centerX() + getWidth() / 2f) > screenWidth){
+                if ((rect.centerX() + getWidth() / 2f) > screenWidth) {
                     float diff = (rect.centerX() + getWidth() / 2f) - screenWidth;
 
-                    adjustedLeft -=  diff;
-                    adjustedRight -=  diff;
+                    adjustedLeft -= diff;
+                    adjustedRight -= diff;
 
                     setAlign(ALIGN.CENTER);
                     changed = true;
-                }else if((rect.centerX() - getWidth() / 2f) < 0){
+                } else if ((rect.centerX() - getWidth() / 2f) < 0) {
                     float diff = -(rect.centerX() - getWidth() / 2f);
 
-                    adjustedLeft +=  diff;
-                    adjustedRight +=  diff;
+                    adjustedLeft += diff;
+                    adjustedRight += diff;
 
                     setAlign(ALIGN.CENTER);
                     changed = true;
                 }
 
-                if(adjustedLeft < 0){
+                if (adjustedLeft < 0) {
                     adjustedLeft = 0;
                 }
 
-                if(adjustedRight > screenWidth){
+                if (adjustedRight > screenWidth) {
                     adjustedRight = screenWidth;
                 }
 
@@ -844,6 +882,10 @@ public class ViewTooltip {
         }
 
         public void removeNow() {
+            if (listenerHide != null) {
+                listenerHide.onHide(TooltipView.this);
+            }
+
             if (getParent() != null) {
                 final ViewGroup parent = ((ViewGroup) getParent());
                 parent.removeView(TooltipView.this);
@@ -855,7 +897,7 @@ public class ViewTooltip {
         }
 
         public void setWithShadow(boolean withShadow) {
-            if(withShadow){
+            if (withShadow) {
                 bubblePaint.setShadowLayer(shadowWidth, 0, 0, shadowColor);
             } else {
                 bubblePaint.setShadowLayer(0, 0, 0, Color.TRANSPARENT);
@@ -916,5 +958,9 @@ public class ViewTooltip {
                 return fragment.getActivity().getWindow();
             }
         }
+    }
+
+    private static int dpToPx(float dp, DisplayMetrics displayMetrics) {
+        return (int) (displayMetrics.density * dp + 0.5f);
     }
 }
