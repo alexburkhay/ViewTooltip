@@ -1,1 +1,1 @@
-include ':app', ':viewtooltip'
+include ':viewtooltip'
