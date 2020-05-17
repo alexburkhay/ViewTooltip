@@ -187,7 +187,6 @@ public class ViewTooltip {
                     }
 
                     decorView.addView(tooltip_view, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                    view.addOnAttachStateChangeListener(tooltip_view.anchorViewAttachStateListener);
                     tooltip_view.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
                         @Override
                         public boolean onPreDraw() {
@@ -399,18 +398,6 @@ public class ViewTooltip {
         private ListenerClick listenerClick;
 
         private TooltipAnimation tooltipAnimation = new FadeTooltipAnimation();
-
-        private OnAttachStateChangeListener anchorViewAttachStateListener = new OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View v) {
-            }
-
-            @Override
-            public void onViewDetachedFromWindow(View v) {
-                v.removeOnAttachStateChangeListener(this);
-                closeNow();
-            }
-        };
 
         private int corner = 30;
 
@@ -633,7 +620,9 @@ public class ViewTooltip {
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
                     animatorListener.onAnimationEnd(animation);
-
+                    if (listenerHide != null) {
+                        listenerHide.onHide(TooltipView.this);
+                    }
                 }
             });
         }
@@ -881,10 +870,6 @@ public class ViewTooltip {
         }
 
         public void removeNow() {
-            if (listenerHide != null) {
-                listenerHide.onHide(TooltipView.this);
-            }
-
             if (getParent() != null) {
                 final ViewGroup parent = ((ViewGroup) getParent());
                 parent.removeView(TooltipView.this);
