@@ -36,11 +36,11 @@ import java.util.Arrays;
 
 public class ViewTooltip {
 
-    private View rootView;
-    private final View view;
-    private final TooltipView tooltip_view;
+    protected View rootView;
+    protected final View view;
+    protected final TooltipView tooltip_view;
 
-    private ViewTooltip(MyContext myContext, View view) {
+    protected ViewTooltip(MyContext myContext, View view) {
         this.view = view;
         this.tooltip_view = new TooltipView(myContext.getContext());
         final NestedScrollView scrollParent = findScrollParent(view);
@@ -54,7 +54,7 @@ public class ViewTooltip {
         }
     }
 
-    private ViewTooltip(MyContext myContext, View rootView, View view) {
+    protected ViewTooltip(MyContext myContext, View rootView, View view) {
         this.rootView = rootView;
         this.view = view;
         this.tooltip_view = new TooltipView(myContext.getContext());
@@ -69,7 +69,11 @@ public class ViewTooltip {
         }
     }
 
-    private ViewTooltip(View view) {
+    public TooltipView getTooltipView() {
+        return tooltip_view;
+    }
+
+    protected ViewTooltip(View view) {
         this(new MyContext(getActivityContext(view.getContext())), view);
     }
 
@@ -99,7 +103,7 @@ public class ViewTooltip {
         }
     }
 
-    private static Activity getActivityContext(Context context) {
+    protected static Activity getActivityContext(Context context) {
         while (context instanceof ContextWrapper) {
             if (context instanceof Activity) {
                 return (Activity) context;
@@ -161,7 +165,7 @@ public class ViewTooltip {
 
     public TooltipView show() {
         final Context activityContext = tooltip_view.getContext();
-        if (activityContext != null && activityContext instanceof Activity) {
+        if (activityContext instanceof Activity) {
             final ViewGroup decorView = rootView != null ?
                     (ViewGroup) rootView :
                     (ViewGroup) ((Activity) activityContext).getWindow().getDecorView();
@@ -431,13 +435,20 @@ public class ViewTooltip {
             setLayerType(LAYER_TYPE_SOFTWARE, bubblePaint);
 
             setWithShadow(true);
+        }
 
+        public View getCustomView() {
+            return childView;
         }
 
         public void setCustomView(View customView) {
+            setCustomView(childView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        public void setCustomView(View customView, int width, int height) {
             this.removeView(childView);
             this.childView = customView;
-            addView(childView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            addView(childView, width, height);
         }
 
         public void setColor(int color) {
