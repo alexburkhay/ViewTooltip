@@ -442,7 +442,7 @@ public class ViewTooltip {
         }
 
         public void setCustomView(View customView) {
-            setCustomView(childView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            setCustomView(customView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
 
         public void setCustomView(View customView, int width, int height) {
