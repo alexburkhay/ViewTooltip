@@ -21,14 +21,14 @@ ext {
     bintrayName = 'viewtooltip'
     orgName = 'florent37'
 
-    publishedGroupId = 'com.github.florent37'
+    publishedGroupId = 'com.github.alexburkhay'
     libraryName = 'ViewTooltip'
     artifact = 'viewtooltip'
 
     libraryDescription = 'ViewTooltip'
 
-    siteUrl = 'https://github.com/florent37/ViewTooltip'
-    gitUrl = 'https://github.com/florent37/ViewTooltip.git'
+    siteUrl = 'https://github.com/alexburkhay/ViewTooltip'
+    gitUrl = 'https://github.com/alexburkhay/ViewTooltip.git'
 
     libraryVersion = rootProject.ext.libraryVersion
 
