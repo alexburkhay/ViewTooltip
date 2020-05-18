@@ -18,6 +18,7 @@ import android.support.annotation.LayoutRes;
 import android.support.annotation.StringRes;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
+import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.NestedScrollView;
 import android.text.Html;
 import android.util.DisplayMetrics;
@@ -71,6 +72,10 @@ public class ViewTooltip {
 
     public TooltipView getTooltipView() {
         return tooltip_view;
+    }
+
+    public boolean isRtl() {
+        return tooltip_view.isRtl();
     }
 
     protected ViewTooltip(View view) {
@@ -325,8 +330,8 @@ public class ViewTooltip {
     }
 
     public enum Position {
-        LEFT,
-        RIGHT,
+        START,
+        END,
         TOP,
         BOTTOM,
     }
@@ -437,6 +442,10 @@ public class ViewTooltip {
             setWithShadow(true);
         }
 
+        public boolean isRtl() {
+            return ViewCompat.getLayoutDirection(childView) == ViewCompat.LAYOUT_DIRECTION_RTL;
+        }
+
         public View getCustomView() {
             return childView;
         }
@@ -477,10 +486,10 @@ public class ViewTooltip {
                 case BOTTOM:
                     setPadding(paddingLeft, paddingTop + arrowHeight, paddingRight, paddingBottom);
                     break;
-                case LEFT:
+                case START:
                     setPadding(paddingLeft, paddingTop, paddingRight + arrowHeight, paddingBottom);
                     break;
-                case RIGHT:
+                case END:
                     setPadding(paddingLeft + arrowHeight, paddingTop, paddingRight, paddingBottom);
                     break;
             }
@@ -684,8 +693,11 @@ public class ViewTooltip {
 
             int x, y;
 
-            if (position == Position.LEFT || position == Position.RIGHT) {
-                if (position == Position.LEFT) {
+            boolean isRtl = isRtl();
+
+            if (position == Position.START || position == Position.END) {
+                if (position == Position.START && !isRtl
+                    || position == Position.END && isRtl) {
                     x = rect.left - getWidth() - distanceWithView;
                 } else {
                     x = rect.right + distanceWithView;
@@ -697,10 +709,11 @@ public class ViewTooltip {
                 } else { // top
                     y = rect.top - getHeight() - distanceWithView;
                 }
-                x = rect.left + getAlignOffset(getWidth(), rect.width());
+                int alignOffset = getAlignOffset(getWidth(), rect.width());
+                x = isRtl ? rect.right - alignOffset - getWidth() : rect.left + alignOffset;
             }
 
-            setTranslationX(x);
+            setTranslationX((isRtl ? -1 : 1) * x);
             setTranslationY(y);
         }
 
@@ -720,14 +733,16 @@ public class ViewTooltip {
             if (viewRect == null)
                 return path;
 
+            boolean isRtl = isRtl();
+
             topLeftDiameter = topLeftDiameter < 0 ? 0 : topLeftDiameter;
             topRightDiameter = topRightDiameter < 0 ? 0 : topRightDiameter;
             bottomLeftDiameter = bottomLeftDiameter < 0 ? 0 : bottomLeftDiameter;
             bottomRightDiameter = bottomRightDiameter < 0 ? 0 : bottomRightDiameter;
 
-            final float spacingLeft = this.position == Position.RIGHT ? arrowHeight : 0;
+            final float spacingLeft = this.position == Position.END && !isRtl || this.position == Position.START && isRtl ? arrowHeight : 0;
             final float spacingTop = this.position == Position.BOTTOM ? arrowHeight : 0;
-            final float spacingRight = this.position == Position.LEFT ? arrowHeight : 0;
+            final float spacingRight = this.position == Position.START && !isRtl || this.position == Position.END && isRtl ? arrowHeight : 0;
             final float spacingBottom = this.position == Position.TOP ? arrowHeight : 0;
 
             final float left = spacingLeft + myRect.left;
@@ -737,20 +752,19 @@ public class ViewTooltip {
             final float centerX = viewRect.centerX() - getX();
 
             final float arrowSourceX = (Arrays.asList(Position.TOP, Position.BOTTOM).contains(this.position))
-                    ? centerX + arrowSourceMargin
+                    ? centerX + (isRtl ? -1 : 1) * arrowSourceMargin
                     : centerX;
             final float arrowTargetX = (Arrays.asList(Position.TOP, Position.BOTTOM).contains(this.position))
-                    ? centerX + arrowTargetMargin
+                    ? centerX + (isRtl ? -1 : 1) * arrowTargetMargin
                     : centerX;
-            final float arrowSourceY = (Arrays.asList(Position.RIGHT, Position.LEFT).contains(this.position))
+            final float arrowSourceY = (Arrays.asList(Position.END, Position.START).contains(this.position))
                     ? bottom / 2f - arrowSourceMargin
                     : bottom / 2f;
-            final float arrowTargetY = (Arrays.asList(Position.RIGHT, Position.LEFT).contains(this.position))
+            final float arrowTargetY = (Arrays.asList(Position.END, Position.START).contains(this.position))
                     ? bottom / 2f - arrowTargetMargin
                     : bottom / 2f;
 
             path.moveTo(left + topLeftDiameter / 2f, top);
-            //LEFT, TOP
 
             if (position == Position.BOTTOM) {
                 path.lineTo(arrowSourceX - arrowWidth, top);
@@ -762,7 +776,7 @@ public class ViewTooltip {
             path.quadTo(right, top, right, top + topRightDiameter / 2);
             //RIGHT, TOP
 
-            if (position == Position.LEFT) {
+            if (position == Position.START && !isRtl || position == Position.END && isRtl) {
                 path.lineTo(right, arrowSourceY - arrowWidth);
                 path.lineTo(myRect.right, arrowTargetY);
                 path.lineTo(right, arrowSourceY + arrowWidth);
@@ -782,7 +796,7 @@ public class ViewTooltip {
             path.quadTo(left, bottom, left, bottom - bottomLeftDiameter / 2);
             //LEFT, BOTTOM
 
-            if (position == Position.RIGHT) {
+            if (position == Position.END && !isRtl || position == Position.START && isRtl) {
                 path.lineTo(left, arrowSourceY + arrowWidth);
                 path.lineTo(myRect.left, arrowTargetY);
                 path.lineTo(left, arrowSourceY - arrowWidth);
@@ -802,11 +816,14 @@ public class ViewTooltip {
             getGlobalVisibleRect(r);
 
             boolean changed = false;
+            boolean isRtl = isRtl();
             final ViewGroup.LayoutParams layoutParams = getLayoutParams();
-            if (position == Position.LEFT && getWidth() > rect.left) {
+            if ((position == Position.START && !isRtl || position == Position.END && isRtl)
+                && getWidth() > rect.left) {
                 layoutParams.width = rect.left - MARGIN_SCREEN_BORDER_TOOLTIP - distanceWithView;
                 changed = true;
-            } else if (position == Position.RIGHT && rect.right + getWidth() > screenWidth) {
+            } else if ((position == Position.END && !isRtl || position == Position.START && isRtl)
+                && (rect.right + getWidth() > screenWidth)) {
                 layoutParams.width = screenWidth - rect.right - MARGIN_SCREEN_BORDER_TOOLTIP - distanceWithView;
                 changed = true;
             } else if (position == Position.TOP || position == Position.BOTTOM) {
